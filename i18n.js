@@ -45,8 +45,7 @@ infoSteps: [
     pos_conjs:'Союзы'
   ,
     pos_particles:'Частицы',
-    donateSoon: "Скоро: поддержка проекта",
-    setupTitle:'Первичная настройка', uiLanguage:'Язык интерфейса', studyLanguage:'Язык тренировки', chooseDeck:'Выберите словарь', confirm:'Подтвердить'
+    donateSoon: "Скоро: поддержка проекта"
 
   },
   uk: {

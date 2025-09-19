@@ -1,6 +1,5 @@
 /* app.addon.startup.js v1.0.0 — отделённый запуск и подключение словарей */
 (function(){
-  // Setup wizard gating
   const App = window.App || (window.App = {});
   if (!App.dictRegistry) App.dictRegistry = { activeKey:null, user:{} };
 
@@ -31,10 +30,22 @@
 
   function start(){
     ensureDictionaries();
+    // First-run setup wizard
+    try{
+      if (window.SetupModal && SetupModal.shouldShow()){
+        document.addEventListener('lexitron:setup:done', function(){ pickDefaultKey(); if (typeof App.bootstrap==='function') App.bootstrap(); }, { once:true });
+        SetupModal.build();
+        return;
+      }
+    }catch(_){}
+    // Normal path
     pickDefaultKey();
     if (typeof App.bootstrap === 'function') {
       App.bootstrap();
     } else {
+      console.error('[startup] App.bootstrap не найден. Проверь порядок подключения скриптов.');
+    }
+  } else {
       console.error('[startup] App.bootstrap не найден. Проверь порядок подключения скриптов.');
     }
   }

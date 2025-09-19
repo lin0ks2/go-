@@ -1,207 +1,170 @@
 
-/* ui.setup.modal.js — первичный мастер выбора языка UI / языка тренировки / словаря
-   Бэкомпат: не ломает существующую логику. Работает один раз, затем читает из localStorage.
-*/
+// ui.setup.modal.js — first-run wizard (safe, additive, no breaking changes)
 (function(){
-  var LS = {
-    uiLang:'lexitron.uiLang',
-    studyLang:'lexitron.studyLang',
-    deckKey:'lexitron.deckKey',
-    setupDone:'lexitron.setupDone',
-    legacyActive:'lexitron.activeKey' // для совместимости со старым кодом
+  const LS = {
+    uiLang: 'lexitron.uiLang',
+    studyLang: 'lexitron.studyLang',
+    deckKey: 'lexitron.deckKey',
+    setupDone: 'lexitron.setupDone',
+    legacyActiveKey: 'lexitron.activeKey'
   };
+  const FLAG_EMOJI = { ru:'🇷🇺', uk:'🇺🇦', en:'🇬🇧', de:'🇩🇪', es:'🇪🇸', fr:'🇫🇷', it:'🇮🇹', pl:'🇵🇱', sr:'🇷🇸', tr:'🇹🇷' };
 
-  function get(k, d){ try{ var v = localStorage.getItem(k); return (v===null?d:v); }catch(e){ return d; } }
-  function set(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
+  function safeGet(k, def){ try{ const v = localStorage.getItem(k); return v===null?def:v; }catch(_){ return def; } }
+  function safeSet(k, v){ try{ localStorage.setItem(k, v); }catch(_){ } }
 
-  function t(key){
+  function i18n(key, def){
     try{
-      var bag = (window.I18N && (I18N[(get(LS.uiLang,'ru')||'ru').toLowerCase()]||I18N['ru'])) || {};
-      return bag[key] || key;
-    }catch(_){ return key; }
+      const lang = (safeGet(LS.uiLang) || (window.App && App.settings && App.settings.lang) || 'uk');
+      const bag = (window.I18N && I18N[lang]) || I18N.uk || {};
+      return bag[key] || def || key;
+    }catch(_){ return def || key; }
   }
 
-  // Доступные языки тренировки — по ключам словарей
+  function builtinKeys(){
+    try{
+      if (window.App && App.Decks && typeof App.Decks.builtinKeys === 'function') return App.Decks.builtinKeys();
+      return Object.keys(window.decks || {});
+    }catch(_){ return []; }
+  }
+
   function studyLangs(){
-    var keys = (window.App && App.Decks && App.Decks.builtinKeys) ? App.Decks.builtinKeys() : Object.keys(window.decks||{});
-    var set = {};
-    keys.forEach(function(k){
-      var lg = (App.Decks && App.Decks.langOfKey) ? App.Decks.langOfKey(k) : String(k).slice(0,2).toLowerCase();
-      if (lg) set[lg] = true;
+    const set = new Set();
+    builtinKeys().forEach(k => {
+      const m = String(k||'').match(/^([a-z]{2})_/i);
+      if (m) set.add(m[1].toLowerCase());
     });
-    return Object.keys(set).sort();
+    return Array.from(set).sort();
   }
 
-  function decksForLang(lg){
-    var keys = (window.App && App.Decks && App.Decks.builtinKeys) ? App.Decks.builtinKeys() : Object.keys(window.decks||{});
-    return keys.filter(function(k){
-      var kk = (App.Decks && App.Decks.langOfKey) ? App.Decks.langOfKey(k) : String(k).slice(0,2).toLowerCase();
-      return kk === String(lg||'').toLowerCase();
+  function decksByLang(lang){
+    const keys = builtinKeys().filter(k => String(k).startsWith((lang||'').toLowerCase()+'_'));
+    return keys.map(key => ({ key, title: (window.App && App.Decks && App.Decks.resolveNameByKey)? App.Decks.resolveNameByKey(key) : key }));
+  }
+
+  function build(){
+    // Root modal
+    const modal = document.createElement('div');
+    modal.id = 'setupModal';
+    modal.className = 'modal hidden'; // reuse existing modal styles
+    modal.setAttribute('role','dialog');
+    modal.setAttribute('aria-modal','true');
+    modal.setAttribute('aria-labelledby','setupTitle');
+    modal.innerHTML = ''
+      + '<div class="backdrop" id="setupBackdrop"></div>'
+      + '<div class="dialog">'
+      +   '<h2 id="setupTitle">' + (i18n('setupTitle','Первичная настройка')) + '</h2>'
+      +   '<div class="field">'
+      +     '<div class="label">' + (i18n('uiLanguage','Язык интерфейса')) + '</div>'
+      +     '<div class="flagsRow" id="setupUiFlags" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;margin:8px 6px 10px;"></div>'
+      +   '</div>'
+      +   '<div class="field">'
+      +     '<div class="label">' + (i18n('studyLanguage','Язык тренировки')) + '</div>'
+      +     '<div class="flagsRow" id="setupStudyFlags" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;margin:8px 6px 10px;"></div>'
+      +   '</div>'
+      +   '<div class="field">'
+      +     '<div class="label">' + (i18n('chooseDeck','Выберите словарь')) + '</div>'
+      +     '<div class="dictList" id="setupDictList" style="max-height:40vh;overflow:auto;"></div>'
+      +   '</div>'
+      +   '<div class="modalActions">'
+      +     '<button id="setupConfirm" class="primary" disabled>' + (i18n('ok','OK') || i18n('confirm','Подтвердить')) + '</button>'
+      +   '</div>'
+      + '</div>';
+
+    document.body.appendChild(modal);
+
+    function open(){ modal.classList.remove('hidden'); }
+    function close(){ modal.classList.add('hidden'); modal.remove(); }
+
+    // UI flags (RU/UK + EN if present)
+    const uiFlags = document.getElementById('setupUiFlags');
+    const uiCandidates = Object.keys((window.I18N||{})).filter(c => ['ru','uk','en'].includes(c));
+    const currentUi = (safeGet(LS.uiLang) || (window.App && App.settings && App.settings.lang) || 'uk').toLowerCase();
+    (uiCandidates.length?uiCandidates:['ru','uk']).forEach(code => {
+      const b = document.createElement('button');
+      b.className = 'flagBtn' + (code===currentUi?' active':'');
+      b.title = (I18N && I18N[code] && I18N[code].langLabel) ? I18N[code].langLabel : code.toUpperCase();
+      b.textContent = FLAG_EMOJI[code] || code.toUpperCase();
+      b.dataset.code = code;
+      b.addEventListener('click', () => {
+        uiFlags.querySelectorAll('.flagBtn').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        safeSet(LS.uiLang, code);
+        // update static labels to new language
+        document.getElementById('setupTitle').textContent = i18n('setupTitle','Первичная настройка');
+        modal.querySelectorAll('.field .label')[0].textContent = i18n('uiLanguage','Язык интерфейса');
+        modal.querySelectorAll('.field .label')[1].textContent = i18n('studyLanguage','Язык тренировки');
+        modal.querySelectorAll('.field .label')[2].textContent = i18n('chooseDeck','Выберите словарь');
+        document.getElementById('setupConfirm').textContent = i18n('ok','OK');
+      });
+      uiFlags.appendChild(b);
     });
-  }
 
-  function deckTitle(key){
-    return (App.Decks && App.Decks.resolveNameByKey) ? App.Decks.resolveNameByKey(key) : String(key);
-  }
-  function deckFlag(key){
-    return (App.Decks && App.Decks.flagForKey) ? App.Decks.flagForKey(key) : '🌐';
-  }
-
-  function openModal(){
-    // UI язык: ru/uk (и en если есть)
-    var uiCurrent = (get(LS.uiLang) || (window.App && App.settings && App.settings.lang) || 'ru').toLowerCase();
-    var allStudy = studyLangs();
-    var studyCurrent = (get(LS.studyLang) || (allStudy[0]||'de')).toLowerCase();
-
-    // deck по умолчанию
-    var preDeck = get(LS.deckKey) || get(LS.legacyActive) || '';
-    if (!preDeck){
-      var list = decksForLang(studyCurrent);
-      preDeck = list[0] || '';
-    }
-
-    var modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.innerHTML =
-      '<div class="backdrop" data-close></div>'+
-      '<div class="dialog">'+
-        '<h2>'+ (t('setupTitle')||'Первичная настройка') +'</h2>'+
-
-        '<div class="langBlock">'+
-          '<div class="label">'+ (t('uiLanguage')||'Язык интерфейса') +'</div>'+
-          '<div class="langFlags" id="uiFlags"></div>'+
-        '</div>'+
-
-        '<div class="langBlock">'+
-          '<div class="label">'+ (t('studyLanguage')||'Язык тренировки') +'</div>'+
-          '<div class="langFlags" id="studyFlags"></div>'+
-        '</div>'+
-
-        '<div class="langBlock">'+
-          '<div class="label">'+ (t('chooseDeck')||'Выберите словарь') +'</div>'+
-          '<div class="dictList" id="deckList" role="listbox" aria-label="'+(t('chooseDeck')||'Выберите словарь')+'"></div>'+
-        '</div>'+
-
-        '<div class="modalActions"><button class="primary" id="setupConfirm" disabled>'+ (t('ok')||t('confirm')||'OK') +'</button></div>'+
-      '</div>';
-
-    function mount(){
-      document.body.appendChild(modal);
-      // заполнить флаги UI
-      var uiFlags = modal.querySelector('#uiFlags');
-      var uiLangs = ['ru','uk'];
-      if (window.I18N && I18N.en) uiLangs.push('en');
-      uiLangs.forEach(function(code){
-        var btn = document.createElement('button');
-        btn.type='button'; btn.className='flagBtn'+(code===uiCurrent?' active':''); btn.dataset.code = code;
-        btn.textContent = code==='ru'?'🇷🇺':(code==='uk'?'🇺🇦':(code==='en'?'🇬🇧':'🌐'));
-        btn.title = code.toUpperCase();
-        uiFlags.appendChild(btn);
+    // Study flags from available decks
+    const studyFlags = document.getElementById('setupStudyFlags');
+    const langs = studyLangs();
+    const currentStudy = (safeGet(LS.studyLang) || langs[0] || 'de').toLowerCase();
+    langs.forEach(code => {
+      const b = document.createElement('button');
+      b.className = 'flagBtn' + (code===currentStudy?' active':'');
+      b.title = (App.i18n && App.i18n()['lang_'+code]) || code.toUpperCase();
+      b.textContent = FLAG_EMOJI[code] || code.toUpperCase();
+      b.dataset.code = code;
+      b.addEventListener('click', () => {
+        studyFlags.querySelectorAll('.flagBtn').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        safeSet(LS.studyLang, code);
+        renderDecks(code);
       });
+      studyFlags.appendChild(b);
+    });
 
-      // флаги языков тренировки
-      var studyFlags = modal.querySelector('#studyFlags');
-      allStudy.forEach(function(code){
-        var btn = document.createElement('button');
-        btn.type='button'; btn.className='flagBtn'+(code===studyCurrent?' active':''); btn.dataset.code = code;
-        // используем flagForKey по одному из словарей данного языка
-        var sampleKey = (decksForLang(code)[0]||'');
-        var emoji = sampleKey ? deckFlag(sampleKey) : '🌐';
-        btn.textContent = emoji;
-        btn.title = code.toUpperCase();
-        studyFlags.appendChild(btn);
-      });
-
-      function renderDecks(lg){
-        var host = modal.querySelector('#deckList');
-        host.innerHTML = '';
-        var list = decksForLang(lg);
-        list.forEach(function(key){
-          var row = document.createElement('div');
-          row.className = 'dictRow'+(key===preDeck?' active':'');
-          row.setAttribute('role','option');
-          row.dataset.key = key;
-          row.innerHTML =
-            '<div class="dictFlag">'+ deckFlag(key) +'</div>'+
-            '<div class="dictName">'+ deckTitle(key) +'</div>'+
-            '<div class="dictActions"><button class="iconOnly" title="'+(t('ttPreview')||'Предпросмотр')+'" data-preview>👁️</button></div>';
-          host.appendChild(row);
+    const listEl = document.getElementById('setupDictList');
+    function renderDecks(langCode){
+      listEl.innerHTML = '';
+      const decks = decksByLang(langCode);
+      decks.forEach(d => {
+        const row = document.createElement('button');
+        row.className = 'dictRow' + ((safeGet(LS.deckKey)===d.key)?' active':'');
+        row.type = 'button';
+        row.dataset.key = d.key;
+        row.innerHTML = '<span class="dictFlag"></span><span class="dictName"></span>';
+        row.querySelector('.dictName').textContent = d.title || d.key;
+        row.addEventListener('click', () => {
+          listEl.querySelectorAll('.dictRow').forEach(x => x.classList.remove('active'));
+          row.classList.add('active');
+          safeSet(LS.deckKey, d.key);
+          document.getElementById('setupConfirm').disabled = false;
         });
-        modal.querySelector('#setupConfirm').disabled = !host.querySelector('.dictRow.active');
-      }
-
-      renderDecks(studyCurrent);
-
-      // handlers
-      uiFlags.addEventListener('click', function(ev){
-        var btn = ev.target.closest('.flagBtn'); if (!btn) return;
-        uiFlags.querySelectorAll('.flagBtn').forEach(function(b){ b.classList.toggle('active', b===btn); });
-        uiCurrent = btn.dataset.code.toLowerCase();
-        set(LS.uiLang, uiCurrent);
-        // Переведём подписи без перезагрузки
-        try {
-          modal.querySelector('h2').textContent = t('setupTitle')||'Первичная настройка';
-          modal.querySelectorAll('.label')[0].textContent = t('uiLanguage')||'Язык интерфейса';
-          modal.querySelectorAll('.label')[1].textContent = t('studyLanguage')||'Язык тренировки';
-          modal.querySelectorAll('.label')[2].textContent = t('chooseDeck')||'Выберите словарь';
-          modal.querySelector('#setupConfirm').textContent = t('ok')||t('confirm')||'OK';
-        } catch(_){}
+        listEl.appendChild(row);
       });
-
-      studyFlags.addEventListener('click', function(ev){
-        var btn = ev.target.closest('.flagBtn'); if (!btn) return;
-        studyFlags.querySelectorAll('.flagBtn').forEach(function(b){ b.classList.toggle('active', b===btn); });
-        studyCurrent = btn.dataset.code.toLowerCase();
-        set(LS.studyLang, studyCurrent.toUpperCase());
-        preDeck = ''; // сбрасываем выбранный словарь
-        renderDecks(studyCurrent);
-      });
-
-      modal.querySelector('#deckList').addEventListener('click', function(ev){
-        var row = ev.target.closest('.dictRow'); if (!row) return;
-        modal.querySelectorAll('.dictRow').forEach(function(r){ r.classList.toggle('active', r===row); });
-        preDeck = row.dataset.key;
-        modal.querySelector('#setupConfirm').disabled = false;
-      });
-
-      modal.querySelector('#deckList').addEventListener('click', function(ev){
-        var btn = ev.target.closest('button[data-preview]'); if (!btn) return;
-        var row = ev.target.closest('.dictRow'); if (!row) return;
-        try{
-          var words = (App.Decks && App.Decks.resolveDeckByKey) ? App.Decks.resolveDeckByKey(row.dataset.key) : [];
-          (App.Decks && App.Decks.openPreview) && App.Decks.openPreview(words, deckTitle(row.dataset.key));
-        }catch(_){}
-      });
-
-      modal.querySelector('#setupConfirm').addEventListener('click', function(){
-        if (!preDeck) return;
-        set(LS.deckKey, preDeck);
-        set(LS.legacyActive, preDeck); // для старого кода
-        set(LS.setupDone, 'true');
-        // применим язык UI немедленно
-        try{ window.App = window.App||{}; App.settings = App.settings||{}; App.settings.lang = uiCurrent; }catch(_){}
-        close();
-        document.dispatchEvent(new CustomEvent('lexitron:setup:done', { detail:{ uiLang:uiCurrent, studyLang:studyCurrent.toUpperCase(), deckKey:preDeck } }));
-      });
-
-      modal.addEventListener('click', function(ev){
-        if (ev.target.hasAttribute('data-close')) close();
-      });
+      document.getElementById('setupConfirm').disabled = !listEl.querySelector('.dictRow.active');
     }
 
-    function close(){
-      modal.classList.add('hidden');
-      setTimeout(function(){ if (modal && modal.parentNode) modal.parentNode.removeChild(modal); }, 120);
-    }
+    renderDecks(currentStudy);
 
-    mount();
+    document.getElementById('setupConfirm').addEventListener('click', () => {
+      const ui = (uiFlags.querySelector('.flagBtn.active')?.dataset.code) || 'uk';
+      const st = (studyFlags.querySelector('.flagBtn.active')?.dataset.code) || currentStudy || 'de';
+      const deck = safeGet(LS.deckKey) || (listEl.querySelector('.dictRow')?.dataset.key) || null;
+      if (!deck) return;
+      safeSet(LS.uiLang, ui);
+      safeSet(LS.studyLang, st);
+      safeSet(LS.deckKey, deck);
+      safeSet(LS.setupDone, 'true');
+      safeSet(LS.legacyActiveKey, deck);
+      try { if (window.App && App.settings) { App.settings.lang = ui; } } catch(_){}
+      close();
+      document.dispatchEvent(new CustomEvent('lexitron:setup:done', { detail: { uiLang: ui, studyLang: st, deckKey: deck } }));
+    });
+
+    // open last
+    open();
   }
 
-  window.SetupModal = {
-    shouldShow: function(){
-      return get(LS.setupDone) !== 'true';
-    },
-    show: function(){ openModal(); },
-    keys: LS
-  };
+  function shouldShow(){
+    return safeGet(LS.setupDone) !== 'true';
+  }
+
+  window.SetupModal = { build, shouldShow, LS };
 })();
