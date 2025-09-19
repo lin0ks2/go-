@@ -28,20 +28,38 @@
     }
   }
 
-  function start(){
+  
+function start(){
   ensureDictionaries();
-  try{
-    if (window.SetupModal && SetupModal.shouldShow()){
-      document.addEventListener('lexitron:setup:done', function(){
-        pickDefaultKey();
-        if (typeof App.bootstrap === 'function') { App.bootstrap(); }
-        else { console.error('[startup] App.bootstrap не найден.'); }
-      }, { once:true });
-      SetupModal.build();
-      return;
-    }
-  }catch(e){ /* fallback below */ }
 
+  // Decide if we must show first-run setup
+  var force = false;
+  try { force = /(?:\?|&)setup=1(?:&|$)/.test(location.search); } catch(_){}
+  function noValidDeck(){
+    try {
+      var dk = localStorage.getItem('lexitron.deckKey') || localStorage.getItem('lexitron.activeKey');
+      if (!dk) return true;
+      if (!window.decks || !Array.isArray(window.decks[dk]) || window.decks[dk].length < 4) return true;
+      return false;
+    } catch(_){ return true; }
+  }
+
+  var needSetup = false;
+  try {
+    needSetup = (window.SetupModal && typeof SetupModal.shouldShow==='function' && SetupModal.shouldShow()) || force || noValidDeck();
+  } catch(_){ needSetup = force || noValidDeck(); }
+
+  if (needSetup && window.SetupModal && typeof SetupModal.build==='function'){
+    document.addEventListener('lexitron:setup:done', function(){
+      pickDefaultKey();
+      if (typeof App.bootstrap === 'function') App.bootstrap();
+      else console.error('[startup] App.bootstrap не найден.');
+    }, { once:true });
+    SetupModal.build();
+    return;
+  }
+
+  // Normal path
   pickDefaultKey();
   if (typeof App.bootstrap === 'function') {
     App.bootstrap();
