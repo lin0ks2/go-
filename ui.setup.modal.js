@@ -173,6 +173,15 @@
   }
 
   function shouldShow(){
+    try{
+      var force = /(?:\?|&)setup=1(?:&|$)/.test(location.search);
+      if (force) return true;
+    }catch(_){}
+    try{
+      var dk = localStorage.getItem('lexitron.deckKey') || localStorage.getItem('lexitron.activeKey');
+      if (!dk) return true;
+      if (!window.decks || !Array.isArray(window.decks[dk]) || window.decks[dk].length < 4) return true;
+    }catch(_){ return true; }
     return safeGet(LS.setupDone) !== 'true';
   }
 
