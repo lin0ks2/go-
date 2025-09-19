@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LEXITRON</title>
+
+  <!-- 🖼️ Apple Touch Icons (iPhone / iPad) -->
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon-180x180.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="./apple-touch-icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="./apple-touch-icon-120x120.png">
+  <link rel="apple-touch-icon" sizes="76x76" href="./apple-touch-icon-76x76.png">
+
+  <!-- 🖼️ Favicon для браузеров -->
+  <link rel="icon" type="image/png" sizes="512x512" href="./logo_512.png">
+  <link rel="icon" type="image/png" sizes="128x128" href="./logo_128.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="./logo_32.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
+  <link rel="icon" href="./favicon.ico" type="image/x-icon">
+
+  <!-- 🖼️ Android/Chrome -->
+  <link rel="icon" sizes="512x512" href="./android-chrome-512x512.png">
+  <link rel="manifest" href="./site.webmanifest">
+
+  <!-- 📱 Метаданные для iOS -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LEXITRON">
+
+  <!-- 🎨 Стили -->
+  <link rel="stylesheet" href="./style.css?v=1.3.5">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <img class="logo-mark"
+           src="./logo_32.png"
+           srcset="./logo_64.png 2x, ./logo_128.png 4x"
+           alt="LEXITRON" width="28" height="28"
+           decoding="async" loading="eager"/>
+      <div class="title-wrap">
+        <h1 id="title">Lexitron <span class="ver" id="appVer"></span></h1>
+        <div class="tagline" id="tagline">Він навчить!</div>
+      </div>
+    </div>
+    <div class="controls">
+      <button id="themeToggleBtn" class="iconBtn" title="Theme" aria-label="Theme">🌞</button>
+      <button id="langToggleBtn"  class="iconBtn" title="Language" aria-label="Language">🇺🇦</button>
+      <button id="dictsBtn"       class="iconBtn gear" title="Словники" aria-label="Словники">📚</button>
+    </div>
+  </header>
+
+  <!-- 🔽 ПАНЕЛЬ НАБОРОВ — РОВНО ПОД ШАПКОЙ -->
+  <div id="dictActiveTitle" class="dictActiveTitle" aria-live="polite"></div>
+  <div id="setsBar" class="setsBar" aria-label="Sets"></div>
+  <div id="setStats" class="setStats statsBar" aria-live="polite"></div>
+<main>
+    <section class="card">
+      <div class="topRow">
+        <div class="stars" id="stars"></div>
+        <button id="favBtn" class="heart" title="Обране" aria-label="Додати в обране">♡</button>
+      </div>
+
+      <div class="word" id="wordText">—</div>
+      <div class="hint" id="hintText">—</div>
+
+      <div class="options" id="optionsRow"></div>
+
+      <div class="statsBar" id="statsBar">
+        Всього слів: 0 / Вивчено: 0 / Помилок: 0
+      </div>
+    </section>
+  
+    <div class="extraActions" aria-label="Extra actions">
+      <button id="btnInfo" class="iconBtn" title="Info" aria-label="Info">ℹ️</button>
+
+      <!-- ⬇️ ИЗМЕНЕНО: кнопка-заглушка заменена на ссылку PayPal -->
+      <a id="btnDonate"
+         class="iconBtn"
+         title="Donate"
+         aria-label="Donate"
+         href="https://www.paypal.com/donate/?hosted_button_id=RE266F9LTU7F2"
+         target="_blank"
+         rel="noopener">
+         💰
+      </a>
+      <!-- ⬆️ конец изменения -->
+    </div>
+
+    <!-- Info Modal -->
+    <div id="infoModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="infoTitle">
+      <div class="modalFrame">
+        <div class="modalHeader">
+          <div class="modalTitle" id="infoTitle">Info</div>
+          <button class="iconBtn small" id="infoClose" aria-label="Close">✖️</button>
+        </div>
+        <div class="modalBody">
+          <div id="infoContent" class="infoContent"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="copyright">© All rights reserved · <span id="copyYear"></span></div>
+  </footer>
+
+  <!-- Модалка словарей -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="backdrop" id="backdrop"></div>
+    <div class="dialog">
+      <h2 id="modalTitle">Словники</h2>
+      <div id="langFlags" class="flagsRow" style="display:flex;gap:8px;align-items:center;justify-content:center;margin:8px 6px 10px;"></div>
+      <div class="field">
+        <div class="dictList" id="dictList"><!-- rows --></div>
+      </div>
+      <div class="modalActions">
+        <button id="okBtn" class="primary">OK</button>
+      </div>
+    </div>
+  </div>
+
+   <!-- i18n/справочники -->
+  <script src="i18n.js?v=1.3.5"></script>
+  <script src="dicts.js?v=1.3.5"></script>
+
+  <!-- словари -->
+  <script src="deck.de.js?v=1.3.5"></script>
+  <script src="deck.sr.js?v=1.3.5"></script>
+  <script src="deck.en.js?v=1.3.5"></script>
+  <script src="deck.fr.js?v=1.3.5"></script>
+  <script src="deck.es.js"></script>
+  <!-- логика приложения (как в baseline, порядок сохранён) -->
+  <script src="app.core.js?v=1.3.5"></script>
+  <script src="app.decks.js?v=1.3.5"></script>
+  <script src="theme.js?v=1.3.5"></script>
+  <script src="app.trainer.js?v=1.3.5"></script>
+  <script src="app.mistakes.js?v=1"></script>
+  <script src="app.favorites.js"></script>
+  <script src="app.favorites.patch.js?v=1.3.5"></script>
+  <script src="app.ui.view.js?v=1.3.5"></script>
+  <script src="ui.options.safe.js"></script>
+  <script src="app.addon.sets.js?v=1.3.5"></script>
+  <script src="app.addon.penalties.js?v=1.3.5"></script>
+  <script src="ui.setup.modal.js"></script>
+  <script src="app.addon.startup.js?v=1.3.5"></script>
+  <!-- Milestone modal -->
+  <div class="modal hidden" id="milestoneModal">
+    <div class="backdrop"></div>
+    <div class="dialog">
+      <h2 id="milestoneTitle" style="text-align:center;margin:0 0 6px;">🎉</h2>
+      <p id="milestoneText" style="text-align:center;margin:8px 0 14px;"></p>
+      <div class="modalActions">
+        <button class="primary" id="milestoneOk" type="button">OK</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Modular UI files -->
+  <script src="ui.bus.js"></script>
+  <script src="ui.state.js"></script>
+  <script src="ui.dicts.js"></script>
+  <script src="ui.sets.js"></script>
+  <script src="ui.progress.scope.js"></script>
+  <script src="ui.trainer.js"></script>
+  <script src="ui.stats.core.js"></script>
+  <script src="ui.lifecycle.js"></script>
+  <script src="ui.sets.done.js"></script>
+  <script src="ui.fix.js"></script>
+  <script src="ui.startup.js"></script>
+
+</body>
+</html>
