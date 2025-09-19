@@ -29,26 +29,26 @@
   }
 
   function start(){
-    ensureDictionaries();
-    // First-run setup wizard
-    try{
-      if (window.SetupModal && SetupModal.shouldShow()){
-        document.addEventListener('lexitron:setup:done', function(){ pickDefaultKey(); if (typeof App.bootstrap==='function') App.bootstrap(); }, { once:true });
-        SetupModal.build();
-        return;
-      }
-    }catch(_){}
-    // Normal path
-    pickDefaultKey();
-    if (typeof App.bootstrap === 'function') {
-      App.bootstrap();
-    } else {
-      console.error('[startup] App.bootstrap не найден. Проверь порядок подключения скриптов.');
+  ensureDictionaries();
+  try{
+    if (window.SetupModal && SetupModal.shouldShow()){
+      document.addEventListener('lexitron:setup:done', function(){
+        pickDefaultKey();
+        if (typeof App.bootstrap === 'function') { App.bootstrap(); }
+        else { console.error('[startup] App.bootstrap не найден.'); }
+      }, { once:true });
+      SetupModal.build();
+      return;
     }
+  }catch(e){ /* fallback below */ }
+
+  pickDefaultKey();
+  if (typeof App.bootstrap === 'function') {
+    App.bootstrap();
   } else {
-      console.error('[startup] App.bootstrap не найден. Проверь порядок подключения скриптов.');
-    }
+    console.error('[startup] App.bootstrap не найден. Проверь порядок подключения скриптов.');
   }
+}
 
   if (document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', start);
