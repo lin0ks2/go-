@@ -45,7 +45,7 @@
   function build(){
     // Root modal
     const modal = document.createElement('div');
-    modal.id = 'setupModal';
+    modal.id = 'setupModal'; modal.classList.add('setupModal');
     modal.className = 'modal hidden'; // reuse existing modal styles
     modal.setAttribute('role','dialog');
     modal.setAttribute('aria-modal','true');
@@ -56,15 +56,15 @@
       +   '<h2 id="setupTitle">' + (i18n('setupTitle','Первичная настройка')) + '</h2>'
       +   '<div class="field">'
       +     '<div class="label">' + (i18n('uiLanguage','Язык интерфейса')) + '</div>'
-      +     '<div class="flagsRow" id="setupUiFlags" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;margin:8px 6px 10px;"></div>'
+      +     '<div class="flagsRow" id="setupUiFlags" ></div>'
       +   '</div>'
       +   '<div class="field">'
       +     '<div class="label">' + (i18n('studyLanguage','Язык тренировки')) + '</div>'
-      +     '<div class="flagsRow" id="setupStudyFlags" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;margin:8px 6px 10px;"></div>'
+      +     '<div class="flagsRow" id="setupStudyFlags" ></div>'
       +   '</div>'
       +   '<div class="field">'
       +     '<div class="label">' + (i18n('chooseDeck','Выберите словарь')) + '</div>'
-      +     '<div class="dictList" id="setupDictList" style="max-height:40vh;overflow:auto;"></div>'
+      +     '<div class="dictList" id="setupDictList" ></div>'
       +   '</div>'
       +   '<div class="modalActions">'
       +     '<button id="setupConfirm" class="primary" disabled>' + (i18n('ok','OK') || i18n('confirm','Подтвердить')) + '</button>'
@@ -141,7 +141,7 @@
       document.getElementById('setupConfirm').disabled = !listEl.querySelector('.dictRow.active');
     }
 
-    renderDecks(currentStudy);
+    // renderDecks(currentStudy);
 
     document.getElementById('setupConfirm').addEventListener('click', () => {
       const ui = (uiFlags.querySelector('.flagBtn.active')?.dataset.code) || 'uk';

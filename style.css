@@ -382,3 +382,9 @@ a#donate, .donate, .donate a, .donate-btn, .donate-btn a, .icon-donate,
   -webkit-text-decoration: none !important;
 }
 
+
+
+/* === Setup Modal specific tweaks === */
+#setupModal .label, #setupModal h2 { text-align:center; }
+#setupModal .flagsRow { display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:center; margin:8px 6px 10px; }
+#setupModal .dictList { max-height: 12em; overflow:auto; } /* ~4 rows */
