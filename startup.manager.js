@@ -1,13 +1,5 @@
 
-/* startup.manager.js — single source of truth for startup (v1)
-   Responsibilities:
-   - Read persisted setup (uiLang, studyLang, deckKey, setupDone)
-   - Gate first-run: show SetupModal when needed (or when forced via ?setup=1)
-   - Validate/fix deckKey: if missing/invalid → pick first deck of studyLang, else first available
-   - Apply UI language (App.settings.lang)
-   - Boot app (App.bootstrap) without any old auto-selection logic
-   - Migrate legacy activeKey once for backward compatibility
-*/
+/* startup.manager.js — unified startup (clean) */
 (function(){
   const LS = {
     uiLang: 'lexitron.uiLang',
@@ -51,82 +43,56 @@
     },
 
     shouldShowSetup(initial){
-      // force via ?setup=1
-      try{
-        if (/(?:\?|&)setup=1(?:&|$)/.test(location.search)) return true;
-      }catch(_){}
+      try{ if (/(?:\?|&)setup=1(?:&|$)/.test(location.search)) return true; }catch(_){}
       if (!initial.setupDone) return true;
-      // if no valid deck stored — require setup
       if (!M.deckExists(initial.deckKey)) return true;
       return false;
     },
 
     validateAndFix(initial){
       let { uiLang, studyLang, deckKey } = initial;
+      // Apply UI lang early
+      try{ if (window.App && App.settings) App.settings.lang = uiLang; M.set(LS.uiLang, uiLang); }catch(_){}
 
-      // Ensure UI lang applied early
-      try{
-        if (window.App && App.settings) App.settings.lang = uiLang;
-        M.set(LS.uiLang, uiLang);
-      }catch(_){}
-
-      // If deck is valid — keep it, derive studyLang from it if missing
       if (M.deckExists(deckKey)){
-        if (!studyLang) {
-          try{ studyLang = String(deckKey).split('_')[0] || studyLang; }catch(_){}
-        }
+        if (!studyLang) { try{ studyLang = String(deckKey).split('_')[0] || studyLang; }catch(_){} }
         return { uiLang, studyLang, deckKey };
       }
-
-      // Deck invalid/missing → try by studyLang
       if (studyLang){
         const first = M.firstDeckForLang(studyLang);
-        if (first){
-          deckKey = first;
-          return { uiLang, studyLang, deckKey };
-        }
+        if (first) return { uiLang, studyLang, deckKey: first };
       }
-
-      // No studyLang → pick first available
       const lang = M.firstLang();
       const first = lang && M.firstDeckForLang(lang);
-      if (first){
-        studyLang = lang;
-        deckKey = first;
-        return { uiLang, studyLang, deckKey };
-      }
-
-      // Nothing available
+      if (first) return { uiLang, studyLang: lang, deckKey: first };
       return { uiLang, studyLang: null, deckKey: null };
     },
 
     persist(state){
       if (state.uiLang) M.set(LS.uiLang, state.uiLang);
       if (state.studyLang) M.set(LS.studyLang, state.studyLang);
-      if (state.deckKey) {
-        M.set(LS.deckKey, state.deckKey);
-        // legacy for backward compatibility
-        M.set(LS.legacyActiveKey, state.deckKey);
-      }
+      if (state.deckKey) { M.set(LS.deckKey, state.deckKey); M.set(LS.legacyActiveKey, state.deckKey); }
+    },
+
+    applyFilters(state){
+      try{ if (window.App && App.settings) App.settings.dictsLangFilter = state.studyLang || null; }catch(_){}
+      try{ if (window.App && App.dictRegistry) App.dictRegistry.activeKey = state.deckKey; }catch(_){}
     },
 
     boot(state){
-      // At this point we assume decks are already loaded (as in current project).
-      // If ever we switch to lazy-load, this is where we would ensure deck bundle for state.deckKey is present.
       if (!state.deckKey){
+        console.error('[Startup] No deck to start'); 
         alert('Нет доступных словарей для старта.');
-        throw new Error('No deck to start');
+        return;
       }
       try{
         if (window.App && typeof App.bootstrap === 'function'){
           App.bootstrap();
           M.log('boot ok with deck', state.deckKey);
-        }else{
+        } else {
           console.error('[Startup] App.bootstrap не найден');
         }
-      }catch(e){
-        console.error('[Startup] boot failed', e);
-      }
+      }catch(e){ console.error('[Startup] boot failed', e); }
     },
 
     gate(){
@@ -135,23 +101,21 @@
 
       if (M.shouldShowSetup(initial) && window.SetupModal && typeof SetupModal.build==='function'){
         M.log('show setup modal');
-        document.addEventListener('lexitron:setup:done', function(ev){
-          const after = M.readSettings(); // read values saved by modal
+        document.addEventListener('lexitron:setup:done', function(){
+          const after = M.readSettings();
           const fixed = M.validateAndFix(after);
           M.persist(fixed);
-          // mark setup done to skip next time
+          M.applyFilters(fixed);
           M.set(LS.setupDone, 'true');
-          M.log('setup done', fixed);
           M.boot(fixed);
         }, { once:true });
         SetupModal.build();
         return;
       }
 
-      // Setup not required → validate/fix and boot
       const fixed = M.validateAndFix(initial);
       M.persist(fixed);
-      M.log('continue without setup', fixed);
+      M.applyFilters(fixed);
       M.boot(fixed);
     }
   });

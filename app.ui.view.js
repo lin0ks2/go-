@@ -619,7 +619,7 @@
         const msg = (App.settings.lang === 'ru') ? 'Очистить «Избранное»? Это действие нельзя отменить.' : 'Очистити «Обране»? Дію не можна скасувати.';
         if (!confirm(msg)) return;
         App.clearFavoritesAll && App.clearFavoritesAll();
-        App.dictRegistry.activeKey = App.Decks.pickDefaultKey();
+        App.dictRegistry.activeKey = App.Decks./* pickDefaultKey disabled by clean startup */
         App.saveDictRegistry();
         renderDictList(); App.renderSetsBar(); renderCard(true); updateStats();
       });
@@ -686,7 +686,7 @@
     if (!App.state || !App.state.totals) App.state.totals = {};
     App.state.totals.sessionErrors = 0;
 
-    if (!App.dictRegistry.activeKey) { App.dictRegistry.activeKey = App.Decks.pickDefaultKey(); App.saveDictRegistry(); }
+    if (!App.dictRegistry.activeKey) { App.dictRegistry.activeKey = App.Decks./* pickDefaultKey disabled by clean startup */ App.saveDictRegistry(); }
 
     applyLang();
     App.applyTheme && App.applyTheme();

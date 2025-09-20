@@ -114,7 +114,7 @@ if (key === 'fav' || key === 'favorites') {
     if (nounKey) {
       App.dictRegistry.activeKey = nounKey;
     } else {
-      App.dictRegistry.activeKey = App.Decks.pickDefaultKey();
+      App.dictRegistry.activeKey = App.Decks./* pickDefaultKey disabled by clean startup */
     }
     App.saveDictRegistry();
 
@@ -172,7 +172,7 @@ if (key === 'fav' || key === 'favorites') {
   const _origBootstrap = App.bootstrap;
   App.bootstrap = function(){
     _origBootstrap();
-    if (!App.dictRegistry.activeKey){ App.dictRegistry.activeKey = App.Decks.pickDefaultKey(); App.saveDictRegistry(); }
+    if (!App.dictRegistry.activeKey){ App.dictRegistry.activeKey = App.Decks./* pickDefaultKey disabled by clean startup */ App.saveDictRegistry(); }
     applyLang(); App.applyTheme(); App.scheduleThemeTick();
     bindHeaderButtons();
     renderCard(true);
